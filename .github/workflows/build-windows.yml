@@ -1,0 +1,28 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install NSIS for the Windows installer
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Fetch locked EasyTier core (windows/amd64)
+        run: go run ./cmd/fetch-core -platform windows/amd64
+      - name: Build Windows package
+        run: go tool mygo build -platform windows/amd64
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TierGo-windows-amd64
+          path: build/windows-amd64/
+          if-no-files-found: error
