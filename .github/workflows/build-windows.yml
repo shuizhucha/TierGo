@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -26,3 +26,25 @@ jobs:
           name: TierGo-windows-amd64
           path: build/windows-amd64/
           if-no-files-found: error
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          app_name="$(jq -r .name mygo.json)"
+          version="$(jq -r .version mygo.json)"
+          tag="v$version"
+          setup="$app_name-$version-windows-amd64-setup.exe"
+          cp "build/windows-amd64/$app_name Setup $version amd64.exe" "$setup"
+          cat > release-notes.md <<'NOTES'
+          基于上游 TierGo 源码构建，本地修改详见仓库根目录 修复说明.md。
+          - 由 GitHub Actions（Build Windows 工作流）云端构建，内嵌官方 EasyTier Core v2.6.4
+          - Windows 安装包未做 Authenticode 签名，安装时系统可能显示安全提示
+          NOTES
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$setup" --clobber
+            echo "Release $tag 已存在，已替换其附件"
+          else
+            gh release create "$tag" --title "TierGo $tag" --notes-file release-notes.md "$setup"
+            echo "已创建 Release $tag"
+          fi
